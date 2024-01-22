@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:todo/screens/add_page.dart';
 import 'package:http/http.dart' as http;
+import 'package:awesome_dialog/awesome_dialog.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
 
 class TodoListPage extends StatefulWidget {
   const TodoListPage({super.key});
@@ -40,7 +42,13 @@ class _TodoListPageState extends State<TodoListPage> {
                   final id = item['_id'] as String;
                   return Card(
                     child: ListTile(
-                      leading: CircleAvatar(child: Text('${index + 1}')),
+                      // leading: CircleAvatar(child: Text('${index + 1}')),
+                      leading: item['is_completed']
+                          ? Icon(
+                              Icons.check_circle,
+                              color: Colors.green[700],
+                            )
+                          : Icon(Icons.check_circle, color: Colors.grey),
                       title: Text(item['title']),
                       subtitle: Text(item['description']),
                       trailing: PopupMenuButton(onSelected: (value) {
@@ -61,6 +69,26 @@ class _TodoListPageState extends State<TodoListPage> {
                           ),
                         ];
                       }),
+                      onLongPress: () {
+                        AwesomeDialog(
+                          context: context,
+                          dialogType: DialogType.info,
+                          animType: AnimType.rightSlide,
+                          title: 'Atenção',
+                          desc: 'Tarefa Concluída ?',
+                          btnOkText: 'Sim',
+                          btnCancelText: 'Não',
+                          btnOkOnPress: () {
+                            EasyLoading.show(
+                              status: 'Carregando',
+                              maskType: EasyLoadingMaskType.black,
+                            );
+
+                            updateStatusTask(item);
+                            fetchTodo();
+                          },
+                        ).show();
+                      },
                     ),
                   );
                 }),
@@ -70,6 +98,19 @@ class _TodoListPageState extends State<TodoListPage> {
           onPressed: navigateToAddPage,
           label: Text('Adicione uma  Tarefa'),
         ));
+  }
+
+  void updateStatusTask(Map item) async {
+    final id = item['_id'];
+    final url = 'http://api.nstack.in/v1/todos/$id';
+    final uri = Uri.parse(url);
+    final body = {
+      'title': item['title'],
+      'description': item['description'],
+      'is_completed': true
+    };
+    final response = await http.put(uri,
+        body: jsonEncode(body), headers: {'Content-Type': 'application/json'});
   }
 
   void navigateToAddPage() {
@@ -106,10 +147,7 @@ class _TodoListPageState extends State<TodoListPage> {
   }
 
   Future<void> fetchTodo() async {
-    // setState(() {
-    //   isLoading = false;
-    // });
-    final url = 'http://api.nstack.in/v1/todos?page=1&limit=10';
+    final url = 'http://api.nstack.in/v1/todos?page=1&limit=20';
     final uri = Uri.parse(url);
     final response = await http.get(uri);
     if (response.statusCode == 200) {
@@ -123,6 +161,7 @@ class _TodoListPageState extends State<TodoListPage> {
     setState(() {
       isLoading = false;
     });
+    EasyLoading.dismiss();
   }
 
   void showSuccessMessage(String message) {
